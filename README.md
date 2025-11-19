@@ -42,6 +42,3 @@ Este proyecto recrea un entorno seguro orientado a ciberseguridad defensiva para
 - Uso de WireGuard como canal seguro de logs.
 - Correlación de eventos en un SIEM (Elastic).
 - Segmentar infraestructura y aplicar hardening básico.
-
-Secreto
-Secreto
