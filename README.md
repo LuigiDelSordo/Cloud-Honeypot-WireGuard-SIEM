@@ -11,6 +11,60 @@
 
 ---
 
+flowchart TB
+
+%% =====================
+%% NODOS PRINCIPALES
+%% =====================
+
+Internet((Internet))
+
+Admin[Admin User]
+
+Sensor["SENSOR (Public)
+Oracle Linux 9 ARM64
+Private IP: 10.0.1.37
+Public IP: x.x.x.x
+22/TCP (Cowrie)
+80/TCP (DVWA)
+2222/TCP (Real SSH via VPN)
+Wazuh Agent"]
+
+WireGuard["WIREGUARD (Public)
+Ubuntu 24.04 ARM64
+Private IP: 10.0.1.40
+Public IP: x.x.x.x
+51820/UDP
+VPN Gateway"]
+
+SIEM["SIEM (Private)
+Ubuntu 24.04 ARM64
+Private IP: 10.0.1.38
+NO Public IP
+Log Collection (1514/TCP)
+SIEM Dashboard"]
+
+%% =====================
+%% FLUJOS PUBLICOS
+%% =====================
+
+Internet -->|22, 80| Sensor
+Internet -->|51820/UDP| WireGuard
+
+%% =====================
+%% LOGS
+%% =====================
+
+Sensor -->|1514/TCP| SIEM
+
+%% =====================
+%% ACCESO ADMIN (VPN)
+%% =====================
+
+Admin -->|51820/UDP| WireGuard
+WireGuard -->|2222/TCP (SSH)| Sensor
+WireGuard -->|Dashboard Access| SIEM
+
 ## 🛡️ Laboratorio de Ciberseguridad Cloud – Honeypots + SIEM Centralizado
 
 Infraestructura real desplegada en **Oracle Cloud (ARM64 – Always Free Tier)** orientada a la **captura, análisis y correlación de ataques reales** mediante honeypots de alta interactividad y un SIEM centralizado.
