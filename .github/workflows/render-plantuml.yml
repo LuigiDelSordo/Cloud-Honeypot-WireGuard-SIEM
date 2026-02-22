@@ -2,8 +2,10 @@ name: Render PlantUML diagrams
 
 on:
   push:
+    branches: [ "main" ]
     paths:
       - "diagrams/**/*.puml"
+      - ".github/workflows/render-plantuml.yml"
   workflow_dispatch:
 
 permissions:
@@ -14,24 +16,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Install PlantUML
+      - name: Install PlantUML + Graphviz
         run: |
-          sudo apt update
-          sudo apt install -y plantuml
+          sudo apt-get update
+          sudo apt-get install -y plantuml graphviz
 
       - name: Render diagrams to SVG
         run: |
-          for file in diagrams/*.puml; do
-            plantuml -tsvg "$file"
-          done
+          plantuml -charset UTF-8 -tsvg diagrams/*.puml
+          ls -la diagrams
 
-      - name: Commit generated SVG
+      - name: Commit generated SVG (if changed)
         run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add diagrams/*.svg
-          git commit -m "Auto-render PlantUML diagrams" || echo "No changes"
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Auto-render PlantUML diagrams"
           git push
