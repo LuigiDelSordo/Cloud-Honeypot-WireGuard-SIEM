@@ -10,60 +10,26 @@
 ![Topología de red](./Topología%20de%20red.png)
 
 ---
-
 flowchart TB
+I((Internet))
+A[Admin User]
 
-%% =====================
-%% NODOS PRINCIPALES
-%% =====================
+subgraph OCI["OCI · Always Free Tier · ARM64 (Ampere A1)<br/>VCN 10.0.1.0/24 · Subnet 10.0.1.0/24"]
+  direction TB
 
-Internet((Internet))
+  S["SENSOR (Public)<br/>Oracle Linux 9 ARM64<br/>10.0.1.37 / x.x.x.x<br/>22 Cowrie · 80 DVWA<br/>2222 Real SSH (VPN-only)<br/>Wazuh Agent"]
+  W["WIREGUARD (Public)<br/>Ubuntu 24.04 ARM64<br/>10.0.1.40 / x.x.x.x<br/>51820/UDP (VPN)"]
+  Z["SIEM (Private)<br/>Ubuntu 24.04 ARM64<br/>10.0.1.38 (no public IP)<br/>Wazuh Manager + Dashboard<br/>Receives logs: 1514/TCP"]
+end
 
-Admin[Admin User]
+I -->|Attack traffic<br/>22, 80| S
+I -->|VPN entry<br/>51820/UDP| W
 
-Sensor["SENSOR (Public)
-Oracle Linux 9 ARM64
-Private IP: 10.0.1.37
-Public IP: x.x.x.x
-22/TCP (Cowrie)
-80/TCP (DVWA)
-2222/TCP (Real SSH via VPN)
-Wazuh Agent"]
+S -->|Logs (private)<br/>1514/TCP| Z
 
-WireGuard["WIREGUARD (Public)
-Ubuntu 24.04 ARM64
-Private IP: 10.0.1.40
-Public IP: x.x.x.x
-51820/UDP
-VPN Gateway"]
-
-SIEM["SIEM (Private)
-Ubuntu 24.04 ARM64
-Private IP: 10.0.1.38
-NO Public IP
-Log Collection (1514/TCP)
-SIEM Dashboard"]
-
-%% =====================
-%% FLUJOS PUBLICOS
-%% =====================
-
-Internet -->|22, 80| Sensor
-Internet -->|51820/UDP| WireGuard
-
-%% =====================
-%% LOGS
-%% =====================
-
-Sensor -->|1514/TCP| SIEM
-
-%% =====================
-%% ACCESO ADMIN (VPN)
-%% =====================
-
-Admin -->|51820/UDP| WireGuard
-WireGuard -->|2222/TCP (SSH)| Sensor
-WireGuard -->|Dashboard Access| SIEM
+A -->|VPN tunnel<br/>51820/UDP| W
+W -->|Admin SSH (private)<br/>2222/TCP| S
+W -->|Dashboard (private)| Z
 
 ## 🛡️ Laboratorio de Ciberseguridad Cloud – Honeypots + SIEM Centralizado
 
