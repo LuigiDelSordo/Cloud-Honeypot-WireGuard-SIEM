@@ -39,6 +39,7 @@ S -->|1514/TCP logs| Z
 A -->|51820/UDP VPN| W
 W -->|SSH 2222| S
 W -->|Dashboard| Z
+```
 
 ---
 
