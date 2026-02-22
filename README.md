@@ -11,43 +11,55 @@
 
 ---
 
-```mermaid
-flowchart TB
+@startuml
+skinparam backgroundColor white
+skinparam Shadowing false
+skinparam defaultFontName Arial
+skinparam RectangleBorderColor #444
+skinparam RectangleFontColor #111
+skinparam ArrowColor #444
+skinparam ArrowThickness 1.2
 
-I((Internet))
-A[Admin User]
+title Cloud Honeypot – WireGuard – SIEM Architecture (ARM64 – Zero Trust)
 
-S["SENSOR (Public)<br/>
-Oracle Linux 9 (ARM64)<br/>
-Priv: 10.0.1.37 · Pub: x.x.x.x<br/>
-22/TCP: Cowrie (SSH honeypot)<br/>
-80/TCP: DVWA (Web honeypot)<br/>
-2222/TCP: Real SSH (ONLY via VPN)<br/>
-Wazuh Agent installed"]
+cloud "INTERNET" as Internet
 
-W["WIREGUARD (Public)<br/>
-Ubuntu 24.04 (ARM64)<br/>
-Priv: 10.0.1.40 · Pub: x.x.x.x<br/>
-51820/UDP: WireGuard VPN"]
+rectangle "Admin User\n(Laptop)" as Admin
 
-Z["SIEM (Private, No Public IP)<br/>
-Ubuntu 24.04 (ARM64)<br/>
-Priv: 10.0.1.38<br/>
-Wazuh Manager + Dashboard<br/>
-Receives logs: 1514/TCP"]
+rectangle "Oracle Cloud Infrastructure (OCI)\nAlways Free Tier · ARM64 (Ampere A1)\nVCN: 10.0.1.0/24 · Subnet: 10.0.1.0/24" as OCI {
 
-%% Public entry points
-I -->|22,80| S
-I -->|51820/UDP| W
+  rectangle "SENSOR (Public Instance)\nOracle Linux 9 · ARM64\nPrivate IP: 10.0.1.37\nPublic IP: x.x.x.x\n\nExposed services:\n- 22/TCP  Cowrie (SSH honeypot)\n- 80/TCP  DVWA (Web honeypot)\n\nAdmin (real SSH):\n- 2222/TCP (ONLY via VPN)\n\nTelemetry:\n- Wazuh Agent installed\n- Docker containers: Cowrie + DVWA" as Sensor
 
-%% Log shipping (private)
-S -->|1514/TCP| Z
+  rectangle "WIREGUARD (Public Instance)\nUbuntu 24.04 · ARM64\nPrivate IP: 10.0.1.40\nPublic IP: x.x.x.x\n\nVPN entry:\n- 51820/UDP (WireGuard)\n\nRole:\n- Single admin entry point\n- Forwards private access to Sensor & SIEM" as WG
 
-%% Admin access path
-A -->|VPN (51820/UDP)| W
-W -->|SSH to Sensor (2222)| S
-W -->|Dashboard to SIEM| Z
-```
+  rectangle "SIEM (Private Instance · NO Public IP)\nUbuntu 24.04 · ARM64\nPrivate IP: 10.0.1.38\n\nComponents:\n- Wazuh Manager\n- Wazuh Dashboard\n\nReceives logs:\n- 1514/TCP (Wazuh)\n\nSecurity:\n- Not exposed to Internet\n- Accessible only via VPN/private network" as SIEM
+}
+
+' Public traffic
+Internet --> Sensor : Attack traffic\n22/TCP (Cowrie)\n80/TCP (DVWA)
+Internet --> WG : VPN entry\n51820/UDP
+
+' Logs
+Sensor --> SIEM : Log forwarding (private)\n1514/TCP
+
+' Admin path
+Admin --> WG : WireGuard tunnel\n51820/UDP
+WG --> Sensor : Admin SSH (private)\n2222/TCP
+WG --> SIEM : Dashboard access (private)\n(through VPN)
+
+note right of Sensor
+Hardening:
+- Real SSH moved to 2222
+- Honeypot uses 22
+end note
+
+note bottom of SIEM
+Zero Trust:
+- SIEM isolated from Internet
+- Least privilege rules in OCI
+end note
+
+@enduml
 
 ---
 
