@@ -11,34 +11,41 @@
 
 ---
 
-## Topología de red
-
-```mermaid
 flowchart TB
+
 I((Internet))
 A[Admin User]
 
-subgraph OCI["Oracle Cloud Infrastructure (OCI)<br/>Always Free Tier · ARM64 (Ampere A1)<br/>VCN: 10.0.1.0/24 · Subnet: 10.0.1.0/24"]
-  direction TB
+S["SENSOR (Public)<br/>
+Oracle Linux 9 (ARM64)<br/>
+Priv: 10.0.1.37 · Pub: x.x.x.x<br/>
+22/TCP: Cowrie (SSH honeypot)<br/>
+80/TCP: DVWA (Web honeypot)<br/>
+2222/TCP: Real SSH (ONLY via VPN)<br/>
+Wazuh Agent installed"]
 
-  subgraph PUB["Public Instances"]
-    direction LR
-    S["SENSOR · Honeypots<br/>Oracle Linux 9 · ARM64<br/>Priv: 10.0.1.37 · Pub: x.x.x.x<br/>22: Cowrie · 80: DVWA<br/>2222: Real SSH (VPN only)<br/>Wazuh Agent"]
-    W["WIREGUARD · VPN Gateway<br/>Ubuntu 24.04 · ARM64<br/>Priv: 10.0.1.40 · Pub: x.x.x.x<br/>51820/UDP"]
-  end
+W["WIREGUARD (Public)<br/>
+Ubuntu 24.04 (ARM64)<br/>
+Priv: 10.0.1.40 · Pub: x.x.x.x<br/>
+51820/UDP: WireGuard VPN"]
 
-  subgraph PRIV["Private Instance (No Public IP)"]
-    direction TB
-    Z["SIEM · Wazuh Manager + Dashboard<br/>Ubuntu 24.04 · ARM64<br/>Priv: 10.0.1.38<br/>No Public IP"]
-  end
-end
+Z["SIEM (Private, No Public IP)<br/>
+Ubuntu 24.04 (ARM64)<br/>
+Priv: 10.0.1.38<br/>
+Wazuh Manager + Dashboard<br/>
+Receives logs: 1514/TCP"]
 
+%% Public entry points
 I -->|22,80| S
 I -->|51820/UDP| W
-S -->|1514/TCP logs| Z
-A -->|51820/UDP VPN| W
-W -->|SSH 2222| S
-W -->|Dashboard| Z
+
+%% Log shipping (private)
+S -->|1514/TCP| Z
+
+%% Admin access path
+A -->|VPN (51820/UDP)| W
+W -->|SSH to Sensor (2222)| S
+W -->|Dashboard to SIEM| Z
 ```
 
 ---
