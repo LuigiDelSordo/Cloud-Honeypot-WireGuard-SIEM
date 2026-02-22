@@ -11,6 +11,7 @@
 
 ---
 
+```mermaid
 flowchart TB
 
 I((Internet))
