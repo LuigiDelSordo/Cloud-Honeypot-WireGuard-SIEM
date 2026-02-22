@@ -1,51 +1,76 @@
 @startuml
-skinparam backgroundColor white
-skinparam shadowing false
-skinparam defaultFontName Arial
-skinparam ArrowThickness 1.2
-skinparam ArrowColor #333333
-skinparam RectangleBorderColor #333333
-skinparam RectangleFontColor #111111
-skinparam RectangleRoundCorner 12
-skinparam wrapWidth 240
-skinparam maxMessageSize 220
+' =========================
+'  Cloud Honeypot - WireGuard - SIEM (OCI ARM64 - Zero Trust)
+' =========================
 
-title Cloud Honeypot – WireGuard – SIEM (OCI ARM64 – Zero Trust)
+skinparam backgroundColor white
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam roundcorner 12
+
+' Layout / líneas para evitar curvas raras y texto tapado
+skinparam linetype ortho
+skinparam nodesep 45
+skinparam ranksep 55
+
+skinparam RectangleBorderColor #444444
+skinparam RectangleFontColor  #111111
+skinparam ArrowColor          #444444
+skinparam ArrowThickness      1.2
+
+title Cloud Honeypot - WireGuard - SIEM (OCI ARM64 - Zero Trust)
 
 cloud "INTERNET" as Internet
-rectangle "Admin User\n(Laptop)" as Admin
+actor "Admin User\n(Laptop)" as Admin
 
-rectangle "Oracle Cloud Infrastructure (OCI)\nAlways Free Tier – ARM64 (Ampere A1)\nVCN: 10.0.1.0/24 | Subnet: 10.0.1.0/24" as OCI {
+rectangle "Oracle Cloud Infrastructure (OCI)\nAlways Free Tier • ARM64 (Ampere A1)\nVCN: 10.0.1.0/24 • Subnet: 10.0.1.0/24" as OCI {
 
-  ' --- fila superior: 2 columnas
-  together {
-    rectangle "SENSOR (Public Instance)\nOracle Linux 9 (ARM64)\nPrivate IP: 10.0.1.37\nPublic IP: x.x.x.x\n\nExposed services:\n- 22/TCP  Cowrie (SSH honeypot)\n- 80/TCP  DVWA (Web honeypot)\n\nAdmin (real SSH):\n- 2222/TCP (VPN-only)\n\nTelemetry:\n- Wazuh Agent\n- Docker containers (Cowrie + DVWA)" as Sensor
+  package "Public Instances" as PUB {
 
-    rectangle "WIREGUARD (Public Instance)\nUbuntu 24.04 (ARM64)\nPrivate IP: 10.0.1.40\nPublic IP: x.x.x.x\n\nVPN entry:\n- 51820/UDP\n\nRole:\n- Single admin entry point\n- Private access to Sensor & SIEM" as WG
+    ' Forzamos que queden EN LA MISMA FILA
+    together {
+      rectangle "SENSOR – Honeypots (Public)\n---------------------------------\nOS: Oracle Linux 9 (ARM64)\nPrivate IP: 10.0.1.37\nPublic IP: x.x.x.x\n\nExposed (honeypot):\n- 22/TCP  Cowrie SSH\n- 80/TCP  DVWA Web\n\nAdmin (real SSH):\n- 2222/TCP  (ONLY via VPN)\n\nTelemetry:\n- Wazuh Agent\n- Docker: Cowrie + DVWA" as Sensor
+
+      rectangle "WIREGUARD – VPN Gateway (Public)\n---------------------------------\nOS: Ubuntu 24.04 LTS (ARM64)\nPrivate IP: 10.0.1.40\nPublic IP: x.x.x.x\n\nVPN Entry:\n- 51820/UDP\n\nRole:\n- Single admin entry point\n- Private access to Sensor & SIEM" as WG
+    }
+
+    ' Enlaces ocultos: anclan la geometría (clave para orden)
+    Sensor -[hidden]-> WG
   }
 
-  ' --- fila inferior: SIEM centrado
-  rectangle "SIEM (Private Instance – NO Public IP)\nUbuntu 24.04 (ARM64)\nPrivate IP: 10.0.1.38\n\nComponents:\n- Wazuh Manager\n- Wazuh Dashboard\n\nReceives logs:\n- 1514/TCP (Wazuh)\n\nSecurity:\n- Not exposed to Internet\n- Access only via VPN/private network" as SIEM
+  package "Private Instance (No Public IP)" as PRIV {
+    rectangle "SIEM – Wazuh Manager (Private)\n---------------------------------\nOS: Ubuntu 24.04 LTS (ARM64)\nPrivate IP: 10.0.1.38\nPublic IP: NONE\n\nComponents:\n- Wazuh Manager\n- Wazuh Dashboard\n\nReceives logs:\n- 1514/TCP (Wazuh)\n\nSecurity:\n- No Internet exposure\n- Access only via VPN / private network" as SIEM
+  }
 
-  ' Truco: “links invisibles” para forzar la colocación (mejora layout)
+  ' Anclaje extra para que SIEM quede debajo y centrado
+  WG -[hidden]-> SIEM
   Sensor -[hidden]-> SIEM
-  WG     -[hidden]-> SIEM
 }
 
-' --- Flujos (flechas cortas y claras)
-Internet --> Sensor : Attack traffic\n22/TCP (Cowrie)\n80/TCP (DVWA)
-Internet --> WG     : VPN entry\n51820/UDP
+' =========================
+'  FLOWS (colores)
+' =========================
 
-Sensor --> SIEM : Log forwarding (private)\n1514/TCP
+' Attack traffic (rojo)
+Internet -[#C0392B]-> Sensor : Attack traffic\n22/TCP, 80/TCP
+Internet -[#C0392B]-> WG     : VPN entry\n51820/UDP
 
-Admin --> WG    : WireGuard tunnel\n51820/UDP
-WG --> Sensor   : Admin SSH (private)\n2222/TCP (VPN-only)
-WG --> SIEM     : Dashboard access (private)\n(via VPN)
+' Logs (azul)
+Sensor -[#1F77B4]-> SIEM : Logs (private)\n1514/TCP
 
+' Admin access (verde)
+Admin  -[#2CA02C]-> WG   : WireGuard tunnel\n51820/UDP
+WG     -[#2CA02C]-> Sensor : Admin SSH (private)\n2222/TCP (via VPN)
+WG     -[#2CA02C]-> SIEM   : Dashboard access (private)\n(via VPN)
+
+' =========================
+'  NOTES
+' =========================
 note right of Sensor
 Hardening:
+- Port 22 is honeypot (Cowrie)
 - Real SSH moved to 2222
-- Honeypot uses 22
+- 2222 reachable ONLY via VPN
 end note
 
 note bottom of SIEM
@@ -53,5 +78,11 @@ Zero Trust:
 - SIEM isolated from Internet
 - Least privilege rules in OCI
 end note
+
+legend right
+<color:#C0392B>Red</color>  = Public/attack exposure
+<color:#1F77B4>Blue</color> = Log forwarding to SIEM
+<color:#2CA02C>Green</color> = Admin via VPN (private)
+endlegend
 
 @enduml
